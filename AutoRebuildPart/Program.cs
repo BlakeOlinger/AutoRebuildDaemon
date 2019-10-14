@@ -1,4 +1,5 @@
 ﻿using SldWorks;
+using System;
 using System.Threading;
 
 namespace AutoRebuildPart
@@ -11,23 +12,31 @@ namespace AutoRebuildPart
             
             // rebuild current model
             var model = (ModelDoc2)swInstance.ActiveDoc;
-            model.ForceRebuild3(true);
+           // model.ForceRebuild3(true);
             
             // read rebuild.txt file written to by Java GUI
             var rebuildPath = @"C:\Users\bolinger\Documents\SolidWorks Projects\Prefab Blob - Cover Blob\app data\rebuild.txt";
             var fileContent = System.IO.File.ReadAllLines(rebuildPath);
 
             // read contents of config file
-            var configContents = System.IO.File.ReadAllText(@fileContent[0]);
+            var configContentsLines = System.IO.File.ReadAllLines(@fileContent[0]);
 
             // replace any '-' characters with '' to swap the negative values after the first rebuild
-            if (configContents.Contains("-"))
+            for(var i = 0; i < configContentsLines.Length; ++i)
             {
-                configContents = configContents.Replace("-", "");
+                if (configContentsLines[i].Contains("-") && configContentsLines[i].Contains("in"))
+                {
+                    configContentsLines[i] = configContentsLines[i].Replace("-", "");
+                }
+            }
+            var newContent = "";
+            foreach (string line in configContentsLines)
+            {
+                newContent += line + "\n";
             }
 
             // write new config contents
-            System.IO.File.WriteAllText(fileContent[0], configContents);
+            System.IO.File.WriteAllText(fileContent[0], newContent);
 
             // wait a few seconds
             Thread.Sleep(2_000);
