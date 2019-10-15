@@ -80,7 +80,6 @@ namespace AutoRebuildPart
                 var firstNewLine = variable + "= " + (firstWriteCondition.Contains("+") ? "" : "-") + dimension;
 
                 partConfigContentsLines[lineNumber] = firstNewLine;
-                Console.WriteLine(partConfigContentsLines[lineNumber]);
             }
             var builder = "";
             foreach (string line in partConfigContentsLines)
