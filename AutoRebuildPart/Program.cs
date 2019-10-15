@@ -93,6 +93,7 @@ namespace AutoRebuildPart
 
             // rebuild
             model.ForceRebuild3(true);
+
             
             // second write to config based on dimension prefix dictionary
             foreach (int lineNumber in dimensionPrefixDict.Keys)
@@ -109,9 +110,11 @@ namespace AutoRebuildPart
                 }
                 var dimensionPrefix = dimensionPrefixDict[lineNumber];
                 var secondWriteCondition = dimensionPrefix.Split(' ')[1];
+                
                 var secondNewLine = variable + "= " + (secondWriteCondition.Contains("+") ? "" : "-") + dimension;
 
                 partConfigContentsLines[lineNumber] = secondNewLine;
+                
             }
             var secondBuilder = "";
             foreach (string line in partConfigContentsLines)
