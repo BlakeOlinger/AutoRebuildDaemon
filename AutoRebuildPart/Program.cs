@@ -19,12 +19,18 @@ namespace AutoRebuildPart
             // read contents of config file
             var partConfigContentsLines = System.IO.File.ReadAllLines(partConfigPath);
 
+            // (prefix, dimension state) - both can be either negative or positive
+            // (-, -) write positive/rebuild/write positive
+            // (-, +) write negative/rebuild/write positive
+            // (+, -) write negative/rebuild/write positive
+            // (+, +) write positive/rebuild/write positive
+
             // populate variable/line number dict
             var variableLineNumberDict = new Dictionary<string, int>();
             var index = 0;
             foreach (string line in partConfigContentsLines)
             {
-                if (line.Contains("in") || line.Contains("deg"))
+                if (line.Contains("in"))
                 {
                     variableLineNumberDict.Add(line, index);
                 }
@@ -32,35 +38,7 @@ namespace AutoRebuildPart
             }
 
             // populate variable-line number/dimension prefix dict
-            var dimensionPrefixDict = new Dictionary<int, string>();
-            foreach (string line in variableLineNumberDict.Keys)
-            {
-                var dimesion = line.Split('=')[1];
-                // if dimension prefix is:
-                // !- : write negative/rebuild/write positive,
-                // !(+) : write negative/rebuild/write negative,
-                // (+) : write positive/rebuild/write positive,
-                // -  : write positive/rebuild/write negative
-                if (dimesion.Contains("!-"))
-                {
-                    dimensionPrefixDict.Add(variableLineNumberDict[line], "- +");
-                } else if (dimesion.Contains("!"))
-                {
-                    dimensionPrefixDict.Add(variableLineNumberDict[line], "- -");
-                } else if (dimesion.Contains("-"))
-                {
-                    dimensionPrefixDict.Add(variableLineNumberDict[line], "+ -");
-                } else
-                {
-                    dimensionPrefixDict.Add(variableLineNumberDict[line], "+ +");
-                }
-            }
-
-            // if dimension prefix is:
-            // !- : write negative/rebuild/write positive,
-            // !(+) : write negative/rebuild/write negative,
-            // (+) : write positive/rebuild/write positive,
-            // -  : write positive/rebuild/write negative
+            
 
             // first write to config based on dimension prefix dictionary
             foreach (int lineNumber in dimensionPrefixDict.Keys)
