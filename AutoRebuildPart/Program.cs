@@ -1,5 +1,4 @@
 ﻿using SldWorks;
-using SwConst;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -67,12 +66,21 @@ namespace AutoRebuildPart
             foreach (int lineNumber in dimensionPrefixDict.Keys)
             {
                 var variable = partConfigContentsLines[lineNumber].Split('=')[0];
-                var dimension = partConfigContentsLines[lineNumber].Split('=')[1];
+                var dimension = partConfigContentsLines[lineNumber].Split('=')[1].Trim();
+                if (dimension.Contains("!"))
+                {
+                    dimension = dimension.Replace("!", "");
+                }
+                if (dimension.Contains("-"))
+                {
+                    dimension = dimension.Replace("-", "");
+                }
                 var dimensionPrefix = dimensionPrefixDict[lineNumber];
                 var firstWriteCondition = dimensionPrefix.Split(' ')[0];
-                var firstNewLine = variable + "=" + (firstWriteCondition.Contains("+") ? "" : "-") + dimension;
+                var firstNewLine = variable + "= " + (firstWriteCondition.Contains("+") ? "" : "-") + dimension;
 
                 partConfigContentsLines[lineNumber] = firstNewLine;
+                Console.WriteLine(partConfigContentsLines[lineNumber]);
             }
             var builder = "";
             foreach (string line in partConfigContentsLines)
@@ -86,15 +94,23 @@ namespace AutoRebuildPart
 
             // rebuild
             model.ForceRebuild3(true);
-
+            
             // second write to config based on dimension prefix dictionary
             foreach (int lineNumber in dimensionPrefixDict.Keys)
             {
                 var variable = partConfigContentsLines[lineNumber].Split('=')[0];
-                var dimension = partConfigContentsLines[lineNumber].Split('=')[1];
+                var dimension = partConfigContentsLines[lineNumber].Split('=')[1].Trim();
+                if (dimension.Contains("!"))
+                {
+                    dimension = dimension.Replace("!", "");
+                }
+                if (dimension.Contains("-"))
+                {
+                    dimension = dimension.Replace("-", "");
+                }
                 var dimensionPrefix = dimensionPrefixDict[lineNumber];
                 var secondWriteCondition = dimensionPrefix.Split(' ')[1];
-                var secondNewLine = variable + "=" + (secondWriteCondition.Contains("+") ? "" : "-") + dimension;
+                var secondNewLine = variable + "= " + (secondWriteCondition.Contains("+") ? "" : "-") + dimension;
 
                 partConfigContentsLines[lineNumber] = secondNewLine;
             }
