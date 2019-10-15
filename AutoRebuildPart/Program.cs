@@ -101,7 +101,7 @@ namespace AutoRebuildPart
             var secondBuilder = "";
             foreach (string line in partConfigContentsLines)
             {
-                builder += line + "\n";
+                secondBuilder += line + "\n";
             }
             System.IO.File.WriteAllText(partConfigPath, secondBuilder);
         }
