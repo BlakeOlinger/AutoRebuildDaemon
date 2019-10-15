@@ -11,92 +11,99 @@ namespace AutoRebuildPart
         static void Main(string[] args)
         {
             var swInstance = new SldWorks.SldWorks();
-            
-            // rebuild current model
             var model = (ModelDoc2)swInstance.ActiveDoc;
 
-            // FIXME - for any write to *.txt config file - write 1 of three states; ! - rebuild as negate - write negate; "" - rebuild write positive/don't overwrite; (-) - rebuild positive write negative
-            //  - this way it's possible to determine if the negation is versus a prior negative state or not -
-            //  - adjust C# to allow for this to happen
-
-            // TODO - allow user to set material via reading a variable in the config.txt file
-
-            // read rebuild.txt file written to by Java GUI
+            // read rebuild.txt
             var rebuildPath = @"C:\Users\bolinger\Documents\SolidWorks Projects\Prefab Blob - Cover Blob\app data\rebuild.txt";
-            var fileContent = System.IO.File.ReadAllLines(rebuildPath);
-            var matesToFlip = new string[] { };
-            // creates a new array for the mates that need to be flipped
-            if (fileContent.Length > 1)
-            {
-                matesToFlip = new string[fileContent.Length - 1];
-                for (var i = 1; i < fileContent.Length; ++i)
-                {
-                    matesToFlip[i - 1] = fileContent[i];
-                }
-                // flips the mate if the X/Z offset is negative relative to current position
-                var cutOff = 5_000;
-                var firstFeature = (Feature)model.FirstFeature();
-                while (firstFeature != null && cutOff-- > 0)
-                {
-                    if ("MateGroup" == firstFeature.GetTypeName())
-                    {
-                        var mateGroup = (Feature)firstFeature.GetFirstSubFeature();
-                        var index = 0;
-                        while (mateGroup != null)
-                        {
-                            var mate = (Mate2)mateGroup.GetSpecificFeature2();
-                            var mateName = mateGroup.Name;
-                            foreach (string dimension in matesToFlip)
-                            {
-                                if (dimension == mateName)
-                                {
-                                    Console.WriteLine(mate.Flipped);
-                                    mate.Flipped = !mate.Flipped;
-                                    Console.WriteLine(mate.Flipped);
-                                }
-                            }
-
-                            mateGroup = (Feature)mateGroup.GetNextSubFeature();
-                            ++index;
-                        }
-                    }
-                    firstFeature = (Feature)firstFeature.GetNextFeature();
-                }
-            }
+            var partConfigPath = System.IO.File.ReadAllLines(rebuildPath)[0];
             
             // read contents of config file
-            var configContentsLines = System.IO.File.ReadAllLines(@fileContent[0]);
+            var partConfigContentsLines = System.IO.File.ReadAllLines(partConfigPath);
 
-            for(var i = 0; i < configContentsLines.Length; ++i)
-             {
-                 if (configContentsLines[i].Contains("-") && configContentsLines[i].Contains("in"))
-                 {
-                     configContentsLines[i] = configContentsLines[i].Replace("-", "");
-                 }
-             }
-             var newContent = "";
-             foreach (string line in configContentsLines)
-             {
-                 newContent += line + "\n";
-             }
+            // populate variable/line number dict
+            var variableLineNumberDict = new Dictionary<string, int>();
+            var index = 0;
+            foreach (string line in partConfigContentsLines)
+            {
+                if (line.Contains("in") || line.Contains("deg"))
+                {
+                    variableLineNumberDict.Add(line, index);
+                }
+                ++index;
+            }
 
-            // allow user to select material via a variable in config.txt file for *.SLDPRT files - intended for covers only atm
-            var partDoc = (PartDoc)model;
-            var materialDatabases = swInstance.GetMaterialDatabases();
-            var bodies = partDoc.GetBodies2((int)swBodyType_e.swAllBodies, false);
-            var db = (string)materialDatabases[3];
-            // read config.txt file and get variable for material - run through switch and set if different
-            var propertyName = "";
-            partDoc.SetMaterialPropertyName(db, "ASTM A36 Steel");
+            // populate variable-line number/dimension prefix dict
+            var dimensionPrefixDict = new Dictionary<int, string>();
+            foreach (string line in variableLineNumberDict.Keys)
+            {
+                var dimesion = line.Split('=')[1];
+                // if dimension prefix is:
+                // !- : write negative/rebuild/write positive,
+                // !(+) : write negative/rebuild/write negative,
+                // (+) : write positive/rebuild/write positive,
+                // -  : write positive/rebuild/write negative
+                if (dimesion.Contains("!-"))
+                {
+                    dimensionPrefixDict.Add(variableLineNumberDict[line], "- +");
+                } else if (dimesion.Contains("!"))
+                {
+                    dimensionPrefixDict.Add(variableLineNumberDict[line], "- -");
+                } else if (dimesion.Contains("-"))
+                {
+                    dimensionPrefixDict.Add(variableLineNumberDict[line], "+ -");
+                } else
+                {
+                    dimensionPrefixDict.Add(variableLineNumberDict[line], "+ +");
+                }
+            }
 
-            // write new config contents
-            // System.IO.File.WriteAllText(fileContent[0], newContent);
+            // if dimension prefix is:
+            // !- : write negative/rebuild/write positive,
+            // !(+) : write negative/rebuild/write negative,
+            // (+) : write positive/rebuild/write positive,
+            // -  : write positive/rebuild/write negative
 
-            // wait a few seconds
-            // Thread.Sleep(2_000);
+            // first write to config based on dimension prefix dictionary
+            foreach (int lineNumber in dimensionPrefixDict.Keys)
+            {
+                var variable = partConfigContentsLines[lineNumber].Split('=')[0];
+                var dimension = partConfigContentsLines[lineNumber].Split('=')[1];
+                var dimensionPrefix = dimensionPrefixDict[lineNumber];
+                var firstWriteCondition = dimensionPrefix.Split(' ')[0];
+                var firstNewLine = variable + "=" + (firstWriteCondition.Contains("+") ? "" : "-") + dimension;
 
-            // rebuild a second time
-            //model.ForceRebuild3(true);
+                partConfigContentsLines[lineNumber] = firstNewLine;
+            }
+            var builder = "";
+            foreach (string line in partConfigContentsLines)
+            {
+                builder += line + "\n";
+            }
+            System.IO.File.WriteAllText(partConfigPath, builder);
+
+            // wait a moment
+            Thread.Sleep(1_000);
+
+            // rebuild
+            model.ForceRebuild3(true);
+
+            // second write to config based on dimension prefix dictionary
+            foreach (int lineNumber in dimensionPrefixDict.Keys)
+            {
+                var variable = partConfigContentsLines[lineNumber].Split('=')[0];
+                var dimension = partConfigContentsLines[lineNumber].Split('=')[1];
+                var dimensionPrefix = dimensionPrefixDict[lineNumber];
+                var secondWriteCondition = dimensionPrefix.Split(' ')[1];
+                var secondNewLine = variable + "=" + (secondWriteCondition.Contains("+") ? "" : "-") + dimension;
+
+                partConfigContentsLines[lineNumber] = secondNewLine;
+            }
+            var secondBuilder = "";
+            foreach (string line in partConfigContentsLines)
+            {
+                builder += line + "\n";
+            }
+            System.IO.File.WriteAllText(partConfigPath, secondBuilder);
         }
     }
 }
