@@ -19,46 +19,87 @@ namespace AutoRebuildPart
             // read contents of config file
             var partConfigContentsLines = System.IO.File.ReadAllLines(partConfigPath);
 
-            // (prefix, dimension state) - both can be either negative or positive
+            // (prefix, dimension negative state) - both can be either negative or positive
             // (-, -) write positive/rebuild/write positive
             // (-, +) write negative/rebuild/write positive
             // (+, -) write negative/rebuild/write positive
             // (+, +) write positive/rebuild/write positive
 
             // populate variable/line number dict
-            var variableLineNumberDict = new Dictionary<string, int>();
+            var variableLineNumberDict = new Dictionary<int, string>();
+            var negativeStateString = "";
             var index = 0;
             foreach (string line in partConfigContentsLines)
             {
-                if (line.Contains("in"))
+                if (line.Contains("in") && line.Contains("Offset"))
                 {
-                    variableLineNumberDict.Add(line, index);
+                    variableLineNumberDict.Add(index, line);
                 }
+
+                if (line.Contains("Negative"))
+                {
+                    negativeStateString += line + "$";
+                }
+
                 ++index;
             }
 
-            // populate variable-line number/dimension prefix dict
-            
+            var negativeStateArray = negativeStateString.Split('$');
 
-            // first write to config based on dimension prefix dictionary
-            foreach (int lineNumber in dimensionPrefixDict.Keys)
+            // populate line number/negative state dict
+            // do so by inputing the corresponding line variable number and
+            // if its negative state variable is negative
+            var lineNumberNegativeStateDict = new Dictionary<int, string>(); //(<#>, (<"-" | "+">, <"-" | "+">)) 
+            foreach (int lineNumber in variableLineNumberDict.Keys)
             {
-                var variable = partConfigContentsLines[lineNumber].Split('=')[0];
-                var dimension = partConfigContentsLines[lineNumber].Split('=')[1].Trim();
-                if (dimension.Contains("!"))
+               foreach(string negativeState in negativeStateArray)
                 {
-                    dimension = dimension.Replace("!", "");
-                }
-                if (dimension.Contains("-"))
-                {
-                    dimension = dimension.Replace("-", "");
-                }
-                var dimensionPrefix = dimensionPrefixDict[lineNumber];
-                var firstWriteCondition = dimensionPrefix.Split(' ')[0];
-                var firstNewLine = variable + "= " + (firstWriteCondition.Contains("+") ? "" : "-") + dimension;
+                    if (negativeState.Length > 0)
+                    {
+                        var negativeStateSegments = negativeState.Split(' ');
+                        var negativeStateHoleNumber = "Hole " + negativeStateSegments[1].Trim();
+                        var negativeStateXZ = negativeStateSegments[3].Trim();
 
-                partConfigContentsLines[lineNumber] = firstNewLine;
+                        if (variableLineNumberDict[lineNumber].Contains(negativeStateHoleNumber) &&
+                            variableLineNumberDict[lineNumber].Contains(negativeStateXZ))
+                        {
+                            var negativeStateIsNegative = negativeStateSegments[5].Trim()
+                                .Contains("1");
+                            var lineIsNegative = variableLineNumberDict[lineNumber].Contains("-");
+                            var lineState = (lineIsNegative ? "-" : "+") + " " +
+                                (negativeStateIsNegative ? "-" : "+");
+
+                            lineNumberNegativeStateDict.Add(lineNumber, lineState);
+                        }
+                    }
+                }
             }
+
+            // generate first write config lines
+            foreach (int lineNumber in lineNumberNegativeStateDict.Keys)
+            {
+                var state = lineNumberNegativeStateDict[lineNumber];
+                var newLine = "";
+
+                switch (state)
+                {
+                    case "- -": // write positive/rebuild/write positive
+                        newLine = partConfigContentsLines[lineNumber].Replace("-", "");
+                        partConfigContentsLines[lineNumber] = newLine;
+                        break;
+                    case "- +": // write negative/rebuild/write positive
+                        break;
+                    case "+ -": // write negative/rebuild/write positive
+                        var equalIndex = partConfigContentsLines[lineNumber].IndexOf('=');
+                        newLine = partConfigContentsLines[lineNumber].Insert(equalIndex + 2, "-");
+                        partConfigContentsLines[lineNumber] = newLine;
+                        break;
+                    case "+ +":
+                        break;
+                }
+            }
+
+            // first write
             var builder = "";
             foreach (string line in partConfigContentsLines)
             {
@@ -67,39 +108,45 @@ namespace AutoRebuildPart
             System.IO.File.WriteAllText(partConfigPath, builder);
 
             // wait a moment
-            Thread.Sleep(1_000);
+            Thread.Sleep(500);
 
             // rebuild
             model.ForceRebuild3(true);
 
-            
-            // second write to config based on dimension prefix dictionary
-            foreach (int lineNumber in dimensionPrefixDict.Keys)
-            {
-                var variable = partConfigContentsLines[lineNumber].Split('=')[0];
-                var dimension = partConfigContentsLines[lineNumber].Split('=')[1].Trim();
-                if (dimension.Contains("!"))
-                {
-                    dimension = dimension.Replace("!", "");
-                }
-                if (dimension.Contains("-"))
-                {
-                    dimension = dimension.Replace("-", "");
-                }
-                var dimensionPrefix = dimensionPrefixDict[lineNumber];
-                var secondWriteCondition = dimensionPrefix.Split(' ')[1];
-                
-                var secondNewLine = variable + "= " + (secondWriteCondition.Contains("+") ? "" : "-") + dimension;
+            // wait a moment
+            Thread.Sleep(500);
 
-                partConfigContentsLines[lineNumber] = secondNewLine;
-                
+            // generate second write config lines
+            foreach (int lineNumber in lineNumberNegativeStateDict.Keys)
+            {
+                var state = lineNumberNegativeStateDict[lineNumber];
+                var newLine = "";
+
+                switch (state)
+                {
+                    case "- -": // write positive/rebuild/write positive
+                        break;
+                    case "- +": // write negative/rebuild/write positive
+                        newLine = partConfigContentsLines[lineNumber].Replace("-", "");
+                        partConfigContentsLines[lineNumber] = newLine;
+                        break;
+                    case "+ -": // write negative/rebuild/write positive
+                        newLine = partConfigContentsLines[lineNumber].Replace("-", "");
+                        partConfigContentsLines[lineNumber] = newLine;
+                        break;
+                    case "+ +":
+                        break;
+                }
             }
+
+            // second write
             var secondBuilder = "";
             foreach (string line in partConfigContentsLines)
             {
                 secondBuilder += line + "\n";
             }
             System.IO.File.WriteAllText(partConfigPath, secondBuilder);
+            
         }
     }
 }
