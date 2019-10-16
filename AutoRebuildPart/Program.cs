@@ -116,23 +116,60 @@ namespace AutoRebuildPart
             // wait a moment
             Thread.Sleep(500);
 
+            // populate negation variable line number dict
+            var lineNumberNegationStateLineNumberDict = new Dictionary<int, int>();
+            foreach (int lineNumber in variableLineNumberDict.Keys)
+            {
+                var lineSegments = variableLineNumberDict[lineNumber].Split(' ');
+                var lineHoleNumber = "Hole " + lineSegments[1];
+                var lineXZ = lineSegments[3];
+
+                index = 0;
+                foreach (string line in partConfigContentsLines)
+                {
+                    if (line.Contains(lineHoleNumber) &&
+                        line.Contains(lineXZ) &&
+                        line.Contains("Negative"))
+                    {
+                        lineNumberNegationStateLineNumberDict.Add(lineNumber, index);
+                    }
+                    ++index;
+                }
+            }
+
             // generate second write config lines
+            // this daemon must write after a switch if a feature is now
+            // in a negative quadrant
             foreach (int lineNumber in lineNumberNegativeStateDict.Keys)
             {
                 var state = lineNumberNegativeStateDict[lineNumber];
                 var newLine = "";
+                var negationLineNumber = 0;
+                var newNegationLine = "";
 
                 switch (state)
                 {
                     case "- -": // write positive/rebuild/write positive
                         break;
+                        // write positive state to negative
                     case "- +": // write negative/rebuild/write positive
                         newLine = partConfigContentsLines[lineNumber].Replace("-", "");
                         partConfigContentsLines[lineNumber] = newLine;
+
+                        negationLineNumber = lineNumberNegationStateLineNumberDict[lineNumber];
+                        newNegationLine = partConfigContentsLines[negationLineNumber].Replace('0', '1');
+                        partConfigContentsLines[negationLineNumber] = newNegationLine;
                         break;
+                        // write negative state to positive
                     case "+ -": // write negative/rebuild/write positive
                         newLine = partConfigContentsLines[lineNumber].Replace("-", "");
                         partConfigContentsLines[lineNumber] = newLine;
+
+                        negationLineNumber = lineNumberNegationStateLineNumberDict[lineNumber];
+                        var stateVariableIndex = partConfigContentsLines[negationLineNumber].LastIndexOf('1');
+                        newNegationLine = partConfigContentsLines[negationLineNumber].Remove(stateVariableIndex, 1);
+                        newNegationLine += "0";
+                        partConfigContentsLines[negationLineNumber] = newNegationLine;
                         break;
                     case "+ +":
                         break;
@@ -146,7 +183,6 @@ namespace AutoRebuildPart
                 secondBuilder += line + "\n";
             }
             System.IO.File.WriteAllText(partConfigPath, secondBuilder);
-            
         }
     }
 }
