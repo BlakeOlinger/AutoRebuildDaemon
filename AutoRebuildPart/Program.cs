@@ -43,11 +43,10 @@ namespace AutoRebuildPart
 
                 ++index;
             }
-           /* foreach (int lineNumber in variableLineNumberDict.Keys)
+            /*foreach (int lineNumber in variableLineNumberDict.Keys)
             {
                 Console.WriteLine(partConfigContentsLines[lineNumber]);
             }*/
-
             var negativeStateArray = negativeStateString.Split('$');
 
             // populate line number/negative state dict
@@ -86,8 +85,18 @@ namespace AutoRebuildPart
                         if (variableLineNumberDict[lineNumber].Contains(negativeStateHoleNumber) &&
                             variableLineNumberDict[lineNumber].Contains(negativeStateXZ))
                         {
-                            var negativeStateIsNegative = negativeStateSegments[5].Trim()
+                            var negativeStateIsNegative = false;
+                            if (negativeState.Contains("Handle"))
+                            {
+                                negativeStateIsNegative = negativeState.Split('=')[1].Contains("1");
+                                //Console.WriteLine(negativeState + " " + negativeStateIsNegative);
+                            } else
+                            {
+                                negativeStateIsNegative = negativeStateSegments[5].Trim()
                                 .Contains("1");
+                                //Console.WriteLine(negativeState + " " + negativeStateIsNegative);
+                            }
+                            
                             var lineIsNegative = variableLineNumberDict[lineNumber].Contains("-");
                             var lineState = (lineIsNegative ? "-" : "+") + " " +
                                 (negativeStateIsNegative ? "-" : "+");
@@ -100,7 +109,7 @@ namespace AutoRebuildPart
                     }
                 }
             }
-           /* foreach (string line in negativeStateArray)
+            /*foreach (string line in negativeStateArray)
             {
                 Console.WriteLine(line);
             }*/
@@ -119,6 +128,7 @@ namespace AutoRebuildPart
                     case "- -": // write positive/rebuild/write positive
                         newLine = partConfigContentsLines[lineNumber].Replace("-", "");
                         partConfigContentsLines[lineNumber] = newLine;
+                        //Console.WriteLine(newLine);
                         break;
                     case "- +": // write negative/rebuild/write positive
                         break;
@@ -144,7 +154,7 @@ namespace AutoRebuildPart
             Thread.Sleep(500);
 
             // rebuild
-            model.ForceRebuild3(true);
+           model.ForceRebuild3(true);
 
             // wait a moment
             Thread.Sleep(500);
