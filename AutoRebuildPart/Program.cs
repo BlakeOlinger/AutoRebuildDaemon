@@ -11,6 +11,7 @@ namespace AutoRebuildPart
         {
             var swInstance = new SldWorks.SldWorks();
             var model = (ModelDoc2)swInstance.ActiveDoc;
+            var isDebug = true;
 
             // read rebuild.txt
             var rebuildPath = @"C:\Users\bolinger\Documents\SolidWorks Projects\Prefab Blob - Cover Blob\app data\rebuild.txt";
@@ -43,10 +44,6 @@ namespace AutoRebuildPart
 
                 ++index;
             }
-            /*foreach (int lineNumber in variableLineNumberDict.Keys)
-            {
-                Console.WriteLine(partConfigContentsLines[lineNumber]);
-            }*/
             var negativeStateArray = negativeStateString.Split('$');
 
             // populate line number/negative state dict
@@ -55,15 +52,12 @@ namespace AutoRebuildPart
             var lineNumberNegativeStateDict = new Dictionary<int, string>(); //(<#>, (<"-" | "+">, <"-" | "+">)) 
             foreach (int lineNumber in variableLineNumberDict.Keys)
             {
-               //Console.WriteLine(variableLineNumberDict[lineNumber]);
                foreach(string negativeState in negativeStateArray)
                 {
-                    //Console.WriteLine(negativeState);
                     if (negativeState.Length > 0)
                     {
                         var negativeStateHoleNumber = "";
                         var negativeStateXZ = "";
-                        //Console.WriteLine(negativeState);
                         var negativeStateSegments = negativeState.Split(' ');
                         if (negativeState.Contains("Handle"))
                         {
@@ -71,17 +65,11 @@ namespace AutoRebuildPart
                                 negativeStateSegments[3].Trim();
                             negativeStateXZ = negativeStateSegments[4].Trim();
 
-                            //Console.WriteLine(negativeStateXZ);
-                            //Console.WriteLine(negativeStateHoleNumber);
-                            //Console.WriteLine(negativeState);
                         } else
                         {
                             negativeStateHoleNumber = "Hole " + negativeStateSegments[1].Trim();
                             negativeStateXZ = negativeStateSegments[3].Trim();
-                            //Console.WriteLine(negativeState);
                         }
-                        //Console.WriteLine(negativeStateHoleNumber);
-                        //Console.WriteLine(negativeStateXZ);
                         if (variableLineNumberDict[lineNumber].Contains(negativeStateHoleNumber) &&
                             variableLineNumberDict[lineNumber].Contains(negativeStateXZ))
                         {
@@ -89,12 +77,10 @@ namespace AutoRebuildPart
                             if (negativeState.Contains("Handle"))
                             {
                                 negativeStateIsNegative = negativeState.Split('=')[1].Contains("1");
-                                //Console.WriteLine(negativeState + " " + negativeStateIsNegative);
                             } else
                             {
                                 negativeStateIsNegative = negativeStateSegments[5].Trim()
                                 .Contains("1");
-                                //Console.WriteLine(negativeState + " " + negativeStateIsNegative);
                             }
                             
                             var lineIsNegative = variableLineNumberDict[lineNumber].Contains("-");
@@ -109,14 +95,7 @@ namespace AutoRebuildPart
                     }
                 }
             }
-            /*foreach (string line in negativeStateArray)
-            {
-                Console.WriteLine(line);
-            }*/
-            /*foreach (int lineNumber in lineNumberNegativeStateDict.Keys)
-            {
-                Console.WriteLine(partConfigContentsLines[lineNumber] + " " + lineNumberNegativeStateDict[lineNumber]);
-            }*/
+
             // generate first write config lines
             foreach (int lineNumber in lineNumberNegativeStateDict.Keys)
             {
@@ -128,7 +107,6 @@ namespace AutoRebuildPart
                     case "- -": // write positive/rebuild/write positive
                         newLine = partConfigContentsLines[lineNumber].Replace("-", "");
                         partConfigContentsLines[lineNumber] = newLine;
-                        //Console.WriteLine(newLine);
                         break;
                     case "- +": // write negative/rebuild/write positive
                         break;
@@ -148,25 +126,35 @@ namespace AutoRebuildPart
             {
                 builder += line + "\n";
             }
-            System.IO.File.WriteAllText(partConfigPath, builder);
-            //Console.WriteLine(builder);
+            if (!isDebug)
+            {
+                System.IO.File.WriteAllText(partConfigPath, builder);
+            }
+
             // wait a moment
-            Thread.Sleep(500);
+            if (!isDebug)
+            {
+                Thread.Sleep(500);
+            }
 
             // rebuild
-           model.ForceRebuild3(true);
+            if (!isDebug)
+            {
+                model.ForceRebuild3(true);
+            }
 
             // wait a moment
-            Thread.Sleep(500);
+            if (!isDebug)
+            {
+                Thread.Sleep(500);
+            }
 
             // populate negation variable line number dict
             var lineNumberNegationStateLineNumberDict = new Dictionary<int, int>();
             foreach (int lineNumber in variableLineNumberDict.Keys)
             {
                 var partConfigLine = partConfigContentsLines[lineNumber];
-                //Console.WriteLine(partConfigLine);
                 var lineSegments = variableLineNumberDict[lineNumber].Split(' ');
-                //Console.WriteLine(variableLineNumberDict[lineNumber]);
                 var lineHoleNumber = "";
                 var lineXZ = "";
                 if (partConfigLine.Contains("Handle"))
@@ -175,14 +163,10 @@ namespace AutoRebuildPart
                     lineHoleNumber = partConfigLineSegments[2].Trim() + " " +
                         partConfigLineSegments[3].Trim();
                     lineXZ = partConfigLineSegments[4].Trim();
-                    //Console.WriteLine(lineHoleNumber);
-                    //Console.WriteLine(lineXZ);
-                   // Console.WriteLine(partConfigLine);
                 } else
                 {
                     lineHoleNumber = "Hole " + lineSegments[1];
                     lineXZ = lineSegments[3];
-                    //Console.WriteLine(lineHoleNumber);
                 }
 
                 index = 0;
@@ -207,12 +191,10 @@ namespace AutoRebuildPart
             foreach (int lineNumber in lineNumberNegativeStateDict.Keys)
             {
                 var line = partConfigContentsLines[lineNumber];
-                //Console.WriteLine(line);
                 var state = lineNumberNegativeStateDict[lineNumber];
                 var newLine = "";
                 var negationLineNumber = 0;
                 var newNegationLine = "";
-                //Console.WriteLine(state);
                 switch (state)
                 {
                     case "- -": // write positive/rebuild/write positive
@@ -221,18 +203,14 @@ namespace AutoRebuildPart
                     case "- +": // write negative/rebuild/write positive/write negative state
                         newLine = partConfigContentsLines[lineNumber].Replace("-", "");
                         partConfigContentsLines[lineNumber] = newLine;
-                        //Console.WriteLine(newLine);
                         if (lineNumberNegationStateLineNumberDict.ContainsKey(lineNumber))
                         {
                             negationLineNumber = lineNumberNegationStateLineNumberDict[lineNumber];
                         }
-                        //Console.WriteLine("Previous Negation Line: " + partConfigContentsLines[negationLineNumber]);
                         var lineSegments = partConfigContentsLines[negationLineNumber].Split('=');
                         newNegationLine = lineSegments[0].Trim() + "= " + lineSegments[1].Trim().Replace('0', '1');
                         partConfigContentsLines[negationLineNumber] = newNegationLine;
 
-                        //Console.WriteLine("New Line: " + newLine);
-                        //Console.WriteLine("New Negation Line: " + newNegationLine);
                         break;
                         // write negative state to positive
                     case "+ -": // write negative/rebuild/write positive
@@ -256,8 +234,59 @@ namespace AutoRebuildPart
             {
                 secondBuilder += line + "\n";
             }
-            System.IO.File.WriteAllText(partConfigPath, secondBuilder);
-            //Console.WriteLine(secondBuilder);
+            if (!isDebug)
+            {
+                System.IO.File.WriteAllText(partConfigPath, secondBuilder);
+            }
+            
+        }
+        private static void waitForInput()
+        {
+            displayLines(" ... Press Any Key to Continue.");
+            Console.ReadLine();
+            Console.Clear();
+        }
+        private static string getFileNameFromPath(string path)
+        {
+            var pathSegments = path.Split('\\');
+            return pathSegments[pathSegments.Length - 1].Trim();
+        }
+        private static void displayLines(string[] lines)
+        {
+            foreach (string line in lines)
+            {
+                Console.WriteLine(line);
+            }
+        }
+        private static void displayLines(string line)
+        {
+            Console.WriteLine(line);
+        }
+        private static void displayLines(int line)
+        {
+            Console.WriteLine(line);
+        }
+        private static void displayLines(double line)
+        {
+            Console.WriteLine(line);
+        }
+        private static void displayLines(double[] lines)
+        {
+            foreach (double number in lines)
+            {
+                Console.WriteLine(number);
+            }
+        }
+        private static void displayLines(Dictionary<string, string> dict)
+        {
+            foreach (string property in dict.Keys)
+            {
+                Console.WriteLine(property + " : " + dict[property]);
+            }
+        }
+        private static void displayLines(Boolean line)
+        {
+            Console.WriteLine(line);
         }
     }
 }
